@@ -6,7 +6,7 @@ import numpy as np
 import pymunk
 from pymunk.vec2d import Vec2d
 
-from src.constants import AIR_DENSITY, DRAG_COEFFICIENT
+from src.constants import AIR_DENSITY, DRAG_COEFFICIENT, NORM_VECTOR
 
 
 @dataclass
@@ -19,10 +19,6 @@ class ChainLink:
     constraints: list[pymunk.Constraint] = field(default_factory=lambda: [])
     body: pymunk.Body = None
     shape: pymunk.Circle = None
-
-    @property
-    def norm_vector(self) -> Vec2d:
-        return Vec2d(0, 1)
 
     @property
     def area(self) -> Vec2d:
@@ -63,7 +59,7 @@ class ChainLink:
 
     @classmethod
     def dynamic_link(cls, other_link: ChainLink, length: float, angle: float) -> ChainLink:
-        pos = other_link.body.position + (other_link.norm_vector.rotated(angle * np.pi / 180) * length)
+        pos = other_link.body.position + (NORM_VECTOR.rotated(angle * np.pi / 180) * length)
         link = cls.generate(other_link.space, pos, other_link.mass, other_link.radius, other_link.shape_filter_group)
         link.add_pinjoint(other_link.body, link.body, Vec2d(0, 0))
         return link
