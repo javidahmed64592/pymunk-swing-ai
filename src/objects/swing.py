@@ -108,9 +108,12 @@ class Swing:
     space: pymunk.Space
     start_pos: Vec2d
     start_angle: float
-    num_links: int
+    links: list[ChainLink]
     link_length: float
-    links: list[ChainLink] = field(default_factory=lambda: [])
+
+    @property
+    def num_links(self) -> int:
+        return len(self.links)
 
     @property
     def top_link(self) -> ChainLink:
@@ -128,17 +131,16 @@ class Swing:
         start_pos: Vec2d,
         shape_filter_group: int,
     ) -> Swing:
-        swing = cls(
-            space, start_pos, swing_config["start_angle"], swing_config["num_links"], swing_config["link_length"]
+        _links: list[ChainLink] = []
+        link = ChainLink.static_link(
+            space, start_pos, swing_config["link_mass"], swing_config["link_radius"], shape_filter_group
         )
-        swing._generate_links(swing_config["link_mass"], swing_config["link_radius"], shape_filter_group)
-        return swing
+        _links.append(link)
+        for _ in range(1, swing_config["num_links"]):
+            _links.append(ChainLink.dynamic_link(_links[-1], swing_config["link_length"], swing_config["start_angle"]))
 
-    def _generate_links(self, mass: float, radius: float, shape_filter_group: int) -> None:
-        link = ChainLink.static_link(self.space, self.start_pos, mass, radius, shape_filter_group)
-        self.links.append(link)
-        for _ in range(1, self.num_links):
-            self.links.append(ChainLink.dynamic_link(self.links[-1], self.link_length, self.start_angle))
+        swing = cls(space, start_pos, swing_config["start_angle"], _links, swing_config["link_length"])
+        return swing
 
     def get_link_by_index(self, index: int) -> ChainLink:
         return self.links[index]
