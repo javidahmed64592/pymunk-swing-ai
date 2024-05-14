@@ -10,11 +10,16 @@ from src.constants import AIR_DENSITY, DRAG_COEFFICIENT, NORM_VECTOR
 
 
 @dataclass
-class ChainLink:
-    space: pymunk.Space
+class ChainLinkConfig:
     start_pos: Vec2d
     mass: float
     radius: float
+
+
+@dataclass
+class ChainLink:
+    space: pymunk.Space
+    chain_link_config: ChainLinkConfig
     shape_filter_group: int
     constraints: list[pymunk.Constraint] = field(default_factory=lambda: [])
     body: pymunk.Body = None
@@ -44,7 +49,8 @@ class ChainLink:
     def generate(
         cls, space: pymunk.Space, start_pos: Vec2d, mass: float, radius: float, shape_filter_group: int
     ) -> ChainLink:
-        link = cls(space, start_pos, mass, radius, shape_filter_group)
+        link_config = ChainLinkConfig(start_pos, mass, radius)
+        link = cls(space, link_config, shape_filter_group)
         link._generate_body()
         link._generate_shape()
         return link
@@ -60,18 +66,24 @@ class ChainLink:
     @classmethod
     def dynamic_link(cls, other_link: ChainLink, length: float, angle: float) -> ChainLink:
         pos = other_link.body.position + (NORM_VECTOR.rotated(angle * np.pi / 180) * length)
-        link = cls.generate(other_link.space, pos, other_link.mass, other_link.radius, other_link.shape_filter_group)
+        link = cls.generate(
+            other_link.space,
+            pos,
+            other_link.chain_link_config.mass,
+            other_link.chain_link_config.radius,
+            other_link.shape_filter_group,
+        )
         link.add_pinjoint(other_link.body, link.body, Vec2d(0, 0))
         return link
 
     def _generate_body(self) -> pymunk.Body:
-        self.body = pymunk.Body(self.mass, self.radius / 2)
-        self.body.position = self.start_pos
+        self.body = pymunk.Body(self.chain_link_config.mass, self.chain_link_config.radius / 2)
+        self.body.position = self.chain_link_config.start_pos
         self.space.add(self.body)
         return self.body
 
     def _generate_shape(self) -> pymunk.Circle:
-        self.shape = pymunk.Circle(self.body, self.radius)
+        self.shape = pymunk.Circle(self.body, self.chain_link_config.radius)
         self.shape.filter = pymunk.ShapeFilter(self.shape_filter_group)
         self.space.add(self.shape)
         return self.shape
