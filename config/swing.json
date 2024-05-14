@@ -1,0 +1,7 @@
+{
+    "start_angle": 90,
+    "num_links": 4,
+    "link_length": 40,
+    "link_mass": 3,
+    "link_radius": 0.5
+}

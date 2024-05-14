@@ -1,0 +1,50 @@
+{
+    "head": {
+        "radius": 9,
+        "mass": 5,
+        "start_angle": 0,
+        "angle_constraints": [0, 10]
+    },
+    "neck": {
+        "length": 8,
+        "mass": 3,
+        "start_angle": 0,
+        "angle_constraints": [0, 10]
+    },
+    "upper_arm": {
+        "length": 30,
+        "mass": 8,
+        "start_angle": 120,
+        "angle_constraints": [0, 240]
+    },
+    "lower_arm": {
+        "length": 27,
+        "mass": 3,
+        "start_angle": 40,
+        "angle_constraints": [0, 180]
+    },
+    "torso": {
+        "length": 60,
+        "mass": 32,
+        "start_angle": 180,
+        "angle_constraints": [30, 180]
+    },
+    "upper_leg": {
+        "length": 35,
+        "mass": 9,
+        "start_angle": 90,
+        "angle_constraints": [30, 180]
+    },
+    "lower_leg": {
+        "length": 50,
+        "mass": 4,
+        "start_angle": 180,
+        "angle_constraints": [30, 180]
+    },
+    "foot": {
+        "length": 20,
+        "mass": 3,
+        "start_angle": 90,
+        "angle_constraints": [50, 150]
+    }
+}
