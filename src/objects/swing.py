@@ -6,6 +6,7 @@ import pymunk
 from pymunk.vec2d import Vec2d
 
 from src.constants import AIR_DENSITY, DRAG_COEFFICIENT, dir_vec
+from src.data_types import SwingConfigType
 
 
 @dataclass
@@ -126,20 +127,20 @@ class Swing:
     @classmethod
     def create(
         cls,
-        swing_config: dict,
+        swing_config: SwingConfigType,
         space: pymunk.Space,
         start_pos: Vec2d,
         shape_filter_group: int,
     ) -> Swing:
         _links: list[ChainLink] = []
         link = ChainLink.static_link(
-            space, start_pos, swing_config["link_mass"], swing_config["link_radius"], shape_filter_group
+            space, start_pos, swing_config.link_mass, swing_config.link_radius, shape_filter_group
         )
         _links.append(link)
-        for _ in range(1, swing_config["num_links"]):
-            _links.append(ChainLink.dynamic_link(_links[-1], swing_config["link_length"], swing_config["start_angle"]))
+        for _ in range(1, swing_config.num_links):
+            _links.append(ChainLink.dynamic_link(_links[-1], swing_config.link_length, swing_config.start_angle))
 
-        swing = cls(space, start_pos, swing_config["start_angle"], _links, swing_config["link_length"])
+        swing = cls(space, start_pos, swing_config.start_angle, _links, swing_config.link_length)
         return swing
 
     def get_link_by_index(self, index: int) -> ChainLink:

@@ -6,6 +6,7 @@ import pymunk
 from pymunk.vec2d import Vec2d
 
 from src.constants import dir_vec
+from src.data_types import LimbConfigType, StickmanConfigType
 
 
 @dataclass
@@ -17,12 +18,12 @@ class LimbConfig:
     shape_filter_group: int
 
     @classmethod
-    def from_dict(cls, limb_data: dict, shape_filter_group: int) -> LimbConfig:
+    def from_config(cls, config: LimbConfigType, shape_filter_group: int) -> LimbConfig:
         return cls(
-            limb_data["length"],
-            limb_data["mass"],
-            limb_data["start_angle"],
-            limb_data["angle_constraints"],
+            config.length,
+            config.mass,
+            config.start_angle,
+            config.angle_constraints,
             shape_filter_group,
         )
 
@@ -107,14 +108,16 @@ class Stickman:
     neck: Limb
 
     @classmethod
-    def create(cls, config: dict, space: pymunk.Space, start_pos: Vec2d, shape_filter_group: int) -> Stickman:
-        foot_config = LimbConfig.from_dict(config["foot"], shape_filter_group)
-        lower_leg_config = LimbConfig.from_dict(config["lower_leg"], shape_filter_group)
-        upper_leg_config = LimbConfig.from_dict(config["upper_leg"], shape_filter_group)
-        torso_config = LimbConfig.from_dict(config["torso"], shape_filter_group)
-        upper_arm_config = LimbConfig.from_dict(config["upper_arm"], shape_filter_group)
-        lower_arm_config = LimbConfig.from_dict(config["lower_arm"], shape_filter_group)
-        neck_config = LimbConfig.from_dict(config["neck"], shape_filter_group)
+    def create(
+        cls, config: StickmanConfigType, space: pymunk.Space, start_pos: Vec2d, shape_filter_group: int
+    ) -> Stickman:
+        neck_config = LimbConfig.from_config(config.neck, shape_filter_group)
+        upper_arm_config = LimbConfig.from_config(config.upper_arm, shape_filter_group)
+        lower_arm_config = LimbConfig.from_config(config.lower_arm, shape_filter_group)
+        torso_config = LimbConfig.from_config(config.torso, shape_filter_group)
+        upper_leg_config = LimbConfig.from_config(config.upper_leg, shape_filter_group)
+        lower_leg_config = LimbConfig.from_config(config.lower_leg, shape_filter_group)
+        foot_config = LimbConfig.from_config(config.foot, shape_filter_group)
 
         foot = Limb.from_config(foot_config, space, start_pos)
         lower_leg = Limb.from_config(
