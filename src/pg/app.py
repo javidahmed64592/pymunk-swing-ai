@@ -4,7 +4,6 @@ import pygame
 import pymunk
 import pymunk.pygame_util
 from pygame.locals import QUIT
-from pymunk.vec2d import Vec2d
 
 from src.config import get_app_config, get_stickman_config, get_swing_config
 from src.data_types import AppConfigType, StickmanConfigType, SwingConfigType
@@ -64,7 +63,7 @@ class App:
         self._space.gravity = (0.0, 900.0)
         self._draw_options = pymunk.pygame_util.DrawOptions(self.screen)
 
-    def add_swing(self, start_pos: Vec2d, shape_filter_group: int) -> None:
+    def add_swing(self, start_pos: pymunk.Vec2d, shape_filter_group: int) -> None:
         """
         Add Swing to application.
 
@@ -75,7 +74,7 @@ class App:
         _swing = Swing.create(self._swing_config, self._space, start_pos, shape_filter_group)
         self._swings.append(_swing)
 
-    def add_stickman(self, start_pos: Vec2d, shape_filter_group: int) -> None:
+    def add_stickman(self, start_pos: pymunk.Vec2d, shape_filter_group: int) -> None:
         """
         Add Stickman to application.
 

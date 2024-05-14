@@ -4,7 +4,6 @@ from dataclasses import dataclass
 
 import numpy as np
 import pymunk
-from pymunk.vec2d import Vec2d
 
 from src.constants import AIR_DENSITY, DRAG_COEFFICIENT, dir_vec
 from src.data_types import HeadConfigType, LimbConfigType, StickmanConfigType
@@ -33,33 +32,33 @@ class HeadConfig:
 class Head:
     space: pymunk.Space
     head_config: HeadConfig
-    start_pos: Vec2d
+    start_pos: pymunk.Vec2d
     head_body: pymunk.Body
     head_shape: pymunk.Circle
     joint_motor: int = None
 
     @property
-    def start_head_position(self) -> Vec2d:
+    def start_head_position(self) -> pymunk.Vec2d:
         return self.head_body.position
 
     @property
-    def end_head_position(self) -> Vec2d:
+    def end_head_position(self) -> pymunk.Vec2d:
         return self.head_body.position + (dir_vec(self.head_config.start_angle) * self.head_config.radius)
 
     @property
-    def area(self) -> Vec2d:
+    def area(self) -> pymunk.Vec2d:
         return self.head_shape.area
 
     @property
-    def position(self) -> Vec2d:
+    def position(self) -> pymunk.Vec2d:
         return self.head_body.position
 
     @property
-    def velocity(self) -> Vec2d:
+    def velocity(self) -> pymunk.Vec2d:
         return self.head_body.velocity
 
     @property
-    def drag_force(self) -> Vec2d:
+    def drag_force(self) -> pymunk.Vec2d:
         k = (AIR_DENSITY * DRAG_COEFFICIENT * self.area) / 2
         direction, speed = self.velocity.normalized_and_length()
         drag_force_magnitude = k * (speed**2)
@@ -70,7 +69,7 @@ class Head:
     def generate(
         cls,
         space: pymunk.Space,
-        start_pos: Vec2d,
+        start_pos: pymunk.Vec2d,
         radius: float,
         mass: float,
         start_angle: float,
@@ -87,7 +86,7 @@ class Head:
 
     @classmethod
     def from_config(
-        cls, config: HeadConfig, space: pymunk.Space, start_pos: Vec2d, offset: Vec2d | None = None
+        cls, config: HeadConfig, space: pymunk.Space, start_pos: pymunk.Vec2d, offset: pymunk.Vec2d | None = None
     ) -> Head:
         if offset:
             start_pos += offset
@@ -102,7 +101,7 @@ class Head:
         )
 
     @staticmethod
-    def _generate_body(head_config: HeadConfig, start_pos: Vec2d) -> pymunk.Body:
+    def _generate_body(head_config: HeadConfig, start_pos: pymunk.Vec2d) -> pymunk.Body:
         body = pymunk.Body(head_config.mass, np.pi / 4 * (head_config.radius**4))
         body.position = start_pos
         return body
@@ -141,33 +140,33 @@ class LimbConfig:
 class Limb:
     space: pymunk.Space
     limb_config: LimbConfig
-    start_pos: Vec2d
+    start_pos: pymunk.Vec2d
     limb_body: pymunk.Body
     limb_segment: pymunk.Segment
     joint_motor: int = None
 
     @property
-    def start_limb_position(self) -> Vec2d:
+    def start_limb_position(self) -> pymunk.Vec2d:
         return self.limb_body.position
 
     @property
-    def end_limb_position(self) -> Vec2d:
+    def end_limb_position(self) -> pymunk.Vec2d:
         return self.limb_body.position + (dir_vec(self.limb_config.start_angle) * self.limb_config.length)
 
     @property
-    def area(self) -> Vec2d:
+    def area(self) -> pymunk.Vec2d:
         return self.limb_segment.area
 
     @property
-    def position(self) -> Vec2d:
+    def position(self) -> pymunk.Vec2d:
         return self.limb_body.position
 
     @property
-    def velocity(self) -> Vec2d:
+    def velocity(self) -> pymunk.Vec2d:
         return self.limb_body.velocity
 
     @property
-    def drag_force(self) -> Vec2d:
+    def drag_force(self) -> pymunk.Vec2d:
         k = (AIR_DENSITY * DRAG_COEFFICIENT * self.area) / 2
         direction, speed = self.velocity.normalized_and_length()
         drag_force_magnitude = k * (speed**2)
@@ -181,7 +180,7 @@ class Limb:
     def generate(
         cls,
         space: pymunk.Space,
-        start_pos: Vec2d,
+        start_pos: pymunk.Vec2d,
         length: float,
         mass: float,
         start_angle: float,
@@ -198,7 +197,7 @@ class Limb:
 
     @classmethod
     def from_config(
-        cls, config: LimbConfig, space: pymunk.Space, start_pos: Vec2d, offset: Vec2d | None = None
+        cls, config: LimbConfig, space: pymunk.Space, start_pos: pymunk.Vec2d, offset: pymunk.Vec2d | None = None
     ) -> Limb:
         if offset:
             start_pos += offset
@@ -213,7 +212,7 @@ class Limb:
         )
 
     @staticmethod
-    def _generate_body(limb_config: LimbConfig, start_pos: Vec2d) -> pymunk.Body:
+    def _generate_body(limb_config: LimbConfig, start_pos: pymunk.Vec2d) -> pymunk.Body:
         body = pymunk.Body(limb_config.mass, limb_config.length / 12)
         body.position = start_pos
         return body
@@ -221,7 +220,7 @@ class Limb:
     @staticmethod
     def _generate_shape(limb_config: LimbConfig, body: pymunk.Body, shape_filter_group: int) -> pymunk.Segment:
         limb_dir = dir_vec(limb_config.start_angle)
-        segment = pymunk.Segment(body, Vec2d(0, 0), (limb_dir * limb_config.length), 3)
+        segment = pymunk.Segment(body, pymunk.Vec2d(0, 0), (limb_dir * limb_config.length), 3)
         segment.filter = pymunk.ShapeFilter(shape_filter_group)
         return segment
 
@@ -229,7 +228,7 @@ class Limb:
 @dataclass
 class Stickman:
     space: pymunk.Space
-    start_pos: Vec2d
+    start_pos: pymunk.Vec2d
     head: Head
     neck: Limb
     upper_arm: Limb
@@ -254,7 +253,7 @@ class Stickman:
 
     @classmethod
     def create(
-        cls, config: StickmanConfigType, space: pymunk.Space, start_pos: Vec2d, shape_filter_group: int
+        cls, config: StickmanConfigType, space: pymunk.Space, start_pos: pymunk.Vec2d, shape_filter_group: int
     ) -> Stickman:
         head_config = HeadConfig.from_config(config.head, shape_filter_group)
         neck_config = LimbConfig.from_config(config.neck, shape_filter_group)
@@ -267,12 +266,14 @@ class Stickman:
 
         foot = Limb.from_config(foot_config, space, start_pos)
         lower_leg = Limb.from_config(
-            lower_leg_config, space, foot.start_limb_position, -Vec2d(0, lower_leg_config.length)
+            lower_leg_config, space, foot.start_limb_position, -pymunk.Vec2d(0, lower_leg_config.length)
         )
         upper_leg = Limb.from_config(
-            upper_leg_config, space, lower_leg.start_limb_position, -Vec2d(upper_leg_config.length, 0)
+            upper_leg_config, space, lower_leg.start_limb_position, -pymunk.Vec2d(upper_leg_config.length, 0)
         )
-        torso = Limb.from_config(torso_config, space, upper_leg.start_limb_position, -Vec2d(0, torso_config.length))
+        torso = Limb.from_config(
+            torso_config, space, upper_leg.start_limb_position, -pymunk.Vec2d(0, torso_config.length)
+        )
         upper_arm = Limb.from_config(upper_arm_config, space, torso.start_limb_position)
         lower_arm = Limb.from_config(lower_arm_config, space, upper_arm.end_limb_position)
         neck = Limb.from_config(neck_config, space, torso.start_limb_position)
