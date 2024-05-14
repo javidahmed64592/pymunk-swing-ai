@@ -2,11 +2,97 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import numpy as np
 import pymunk
 from pymunk.vec2d import Vec2d
 
 from src.constants import dir_vec
-from src.data_types import LimbConfigType, StickmanConfigType
+from src.data_types import HeadConfigType, LimbConfigType, StickmanConfigType
+
+
+@dataclass
+class HeadConfig:
+    radius: float
+    mass: float
+    start_angle: 0
+    angle_constraints: tuple[float, float]
+    shape_filter_group: int
+
+    @classmethod
+    def from_config(cls, config: HeadConfigType, shape_filter_group: int) -> HeadConfig:
+        return cls(
+            config.radius,
+            config.mass,
+            config.start_angle,
+            config.angle_constraints,
+            shape_filter_group,
+        )
+
+
+@dataclass
+class Head:
+    space: pymunk.Space
+    head_config: HeadConfig
+    start_pos: Vec2d
+    head_body: pymunk.Body
+    head_shape: pymunk.Circle
+    joint_motor: int = None
+
+    @property
+    def start_body_position(self) -> Vec2d:
+        return self.head_body.position
+
+    @property
+    def end_body_position(self) -> Vec2d:
+        return self.head_body.position + (dir_vec(self.head_config.start_angle) * self.head_config.radius)
+
+    @classmethod
+    def generate(
+        cls,
+        space: pymunk.Space,
+        start_pos: Vec2d,
+        radius: float,
+        mass: float,
+        start_angle: float,
+        angle_constraints: tuple[float, float],
+        shape_filter_group: int,
+    ) -> Head:
+        head_config = HeadConfig(radius, mass, start_angle, angle_constraints, shape_filter_group)
+
+        body = Head._generate_body(head_config, start_pos)
+        shape = Head._generate_shape(head_config, body, shape_filter_group)
+        space.add(body, shape)
+
+        return cls(space, head_config, start_pos, body, shape, 1)
+
+    @classmethod
+    def from_config(
+        cls, config: HeadConfig, space: pymunk.Space, start_pos: Vec2d, offset: Vec2d | None = None
+    ) -> Head:
+        if offset:
+            start_pos += offset
+        return cls.generate(
+            space,
+            start_pos,
+            config.radius,
+            config.mass,
+            config.start_angle,
+            config.angle_constraints,
+            config.shape_filter_group,
+        )
+
+    @staticmethod
+    def _generate_body(head_config: HeadConfig, start_pos: Vec2d) -> pymunk.Body:
+        body = pymunk.Body(head_config.mass, np.pi / 4 * (head_config.radius**4))
+        body.position = start_pos
+        return body
+
+    @staticmethod
+    def _generate_shape(head_config: HeadConfig, body: pymunk.Body, shape_filter_group: int) -> pymunk.Circle:
+        head_dir = dir_vec(head_config.start_angle)
+        shape = pymunk.Circle(body, head_config.radius, head_dir * head_config.radius)
+        shape.filter = pymunk.ShapeFilter(shape_filter_group)
+        return shape
 
 
 @dataclass
@@ -62,8 +148,7 @@ class Limb:
         segment = Limb._generate_shape(limb_config, body, shape_filter_group)
         space.add(body, segment)
 
-        limb = cls(space, limb_config, start_pos, body, segment, 1)
-        return limb
+        return cls(space, limb_config, start_pos, body, segment, 1)
 
     @classmethod
     def from_config(
@@ -99,18 +184,20 @@ class Limb:
 class Stickman:
     space: pymunk.Space
     start_pos: Vec2d
-    foot: Limb
-    lower_leg: Limb
-    upper_leg: Limb
-    torso: Limb
+    head: Head
+    neck: Limb
     upper_arm: Limb
     lower_arm: Limb
-    neck: Limb
+    torso: Limb
+    lower_leg: Limb
+    upper_leg: Limb
+    foot: Limb
 
     @classmethod
     def create(
         cls, config: StickmanConfigType, space: pymunk.Space, start_pos: Vec2d, shape_filter_group: int
     ) -> Stickman:
+        head_config = HeadConfig.from_config(config.head, shape_filter_group)
         neck_config = LimbConfig.from_config(config.neck, shape_filter_group)
         upper_arm_config = LimbConfig.from_config(config.upper_arm, shape_filter_group)
         lower_arm_config = LimbConfig.from_config(config.lower_arm, shape_filter_group)
@@ -130,4 +217,5 @@ class Stickman:
         upper_arm = Limb.from_config(upper_arm_config, space, torso.start_limb_position)
         lower_arm = Limb.from_config(lower_arm_config, space, upper_arm.end_limb_position)
         neck = Limb.from_config(neck_config, space, torso.start_limb_position)
-        return cls(space, start_pos, foot, lower_leg, upper_leg, torso, upper_arm, lower_arm, neck)
+        head = Head.from_config(head_config, space, neck.end_limb_position)
+        return cls(space, start_pos, head, neck, upper_arm, lower_arm, torso, upper_leg, lower_leg, foot)
