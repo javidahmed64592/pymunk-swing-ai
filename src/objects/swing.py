@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import numpy as np
 import pymunk
 from pymunk.vec2d import Vec2d
 
@@ -55,8 +56,7 @@ class ChainLink:
         shape = ChainLink._generate_shape(chain_link_config, body)
         space.add(body, shape)
 
-        link = cls(space, chain_link_config, start_pos, body, shape)
-        return link
+        return cls(space, chain_link_config, start_pos, body, shape)
 
     @classmethod
     def static_link(
@@ -81,7 +81,7 @@ class ChainLink:
 
     @staticmethod
     def _generate_body(chain_link_config: ChainLinkConfig, start_pos: Vec2d) -> pymunk.Body:
-        body = pymunk.Body(chain_link_config.mass, chain_link_config.radius / 2)
+        body = pymunk.Body(chain_link_config.mass, np.pi / 4 * (chain_link_config.radius**4))
         body.position = start_pos
         return body
 
@@ -140,8 +140,7 @@ class Swing:
         for _ in range(1, swing_config.num_links):
             _links.append(ChainLink.dynamic_link(_links[-1], swing_config.link_length, swing_config.start_angle))
 
-        swing = cls(space, start_pos, swing_config.start_angle, _links, swing_config.link_length)
-        return swing
+        return cls(space, start_pos, swing_config.start_angle, _links, swing_config.link_length)
 
     def get_link_by_index(self, index: int) -> ChainLink:
         return self.links[index]
