@@ -6,7 +6,7 @@ import numpy as np
 import pymunk
 from pymunk.vec2d import Vec2d
 
-from src.constants import dir_vec
+from src.constants import AIR_DENSITY, DRAG_COEFFICIENT, dir_vec
 from src.data_types import HeadConfigType, LimbConfigType, StickmanConfigType
 
 
@@ -39,12 +39,32 @@ class Head:
     joint_motor: int = None
 
     @property
-    def start_body_position(self) -> Vec2d:
+    def start_head_position(self) -> Vec2d:
         return self.head_body.position
 
     @property
-    def end_body_position(self) -> Vec2d:
+    def end_head_position(self) -> Vec2d:
         return self.head_body.position + (dir_vec(self.head_config.start_angle) * self.head_config.radius)
+
+    @property
+    def area(self) -> Vec2d:
+        return self.head_shape.area
+
+    @property
+    def position(self) -> Vec2d:
+        return self.head_body.position
+
+    @property
+    def velocity(self) -> Vec2d:
+        return self.head_body.velocity
+
+    @property
+    def drag_force(self) -> Vec2d:
+        k = (AIR_DENSITY * DRAG_COEFFICIENT * self.area) / 2
+        direction, speed = self.velocity.normalized_and_length()
+        drag_force_magnitude = k * (speed**2)
+        drag_force = -direction * drag_force_magnitude
+        return drag_force
 
     @classmethod
     def generate(
@@ -94,6 +114,9 @@ class Head:
         shape.filter = pymunk.ShapeFilter(shape_filter_group)
         return shape
 
+    def update(self) -> None:
+        self.head_body.apply_force_at_world_point(self.drag_force, self.position)
+
 
 @dataclass
 class LimbConfig:
@@ -119,17 +142,40 @@ class Limb:
     space: pymunk.Space
     limb_config: LimbConfig
     start_pos: Vec2d
-    joint_body: pymunk.Body
+    limb_body: pymunk.Body
     limb_segment: pymunk.Segment
     joint_motor: int = None
 
     @property
     def start_limb_position(self) -> Vec2d:
-        return self.joint_body.position
+        return self.limb_body.position
 
     @property
     def end_limb_position(self) -> Vec2d:
-        return self.joint_body.position + (dir_vec(self.limb_config.start_angle) * self.limb_config.length)
+        return self.limb_body.position + (dir_vec(self.limb_config.start_angle) * self.limb_config.length)
+
+    @property
+    def area(self) -> Vec2d:
+        return self.limb_segment.area
+
+    @property
+    def position(self) -> Vec2d:
+        return self.limb_body.position
+
+    @property
+    def velocity(self) -> Vec2d:
+        return self.limb_body.velocity
+
+    @property
+    def drag_force(self) -> Vec2d:
+        k = (AIR_DENSITY * DRAG_COEFFICIENT * self.area) / 2
+        direction, speed = self.velocity.normalized_and_length()
+        drag_force_magnitude = k * (speed**2)
+        drag_force = -direction * drag_force_magnitude
+        return drag_force
+
+    def update(self) -> None:
+        self.limb_body.apply_force_at_world_point(self.drag_force, self.position)
 
     @classmethod
     def generate(
@@ -193,6 +239,19 @@ class Stickman:
     upper_leg: Limb
     foot: Limb
 
+    @property
+    def body_parts(self) -> list[Head, Limb]:
+        return [
+            self.head,
+            self.neck,
+            self.upper_arm,
+            self.lower_arm,
+            self.torso,
+            self.upper_leg,
+            self.lower_leg,
+            self.foot,
+        ]
+
     @classmethod
     def create(
         cls, config: StickmanConfigType, space: pymunk.Space, start_pos: Vec2d, shape_filter_group: int
@@ -219,3 +278,7 @@ class Stickman:
         neck = Limb.from_config(neck_config, space, torso.start_limb_position)
         head = Head.from_config(head_config, space, neck.end_limb_position)
         return cls(space, start_pos, head, neck, upper_arm, lower_arm, torso, upper_leg, lower_leg, foot)
+
+    def update(self) -> None:
+        for body_part in self.body_parts:
+            body_part.update()

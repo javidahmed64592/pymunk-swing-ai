@@ -104,6 +104,8 @@ class App:
         """
         for swing in self._swings:
             swing.update()
+        for stickman in self._members:
+            stickman.update()
         self._space.debug_draw(self._draw_options)
         self._space.step(1 / self._app_config.fps)
 
