@@ -2,28 +2,27 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-import numpy as np
 import pymunk
 from pymunk.vec2d import Vec2d
 
-from src.constants import AIR_DENSITY, DRAG_COEFFICIENT, NORM_VECTOR
+from src.constants import AIR_DENSITY, DRAG_COEFFICIENT, dir_vec
 
 
 @dataclass
 class ChainLinkConfig:
-    start_pos: Vec2d
     mass: float
     radius: float
+    shape_filter_group: int
 
 
 @dataclass
 class ChainLink:
     space: pymunk.Space
     chain_link_config: ChainLinkConfig
-    shape_filter_group: int
+    start_pos: Vec2d
+    body: pymunk.Body
+    shape: pymunk.Circle
     constraints: list[pymunk.Constraint] = field(default_factory=lambda: [])
-    body: pymunk.Body = None
-    shape: pymunk.Circle = None
 
     @property
     def area(self) -> Vec2d:
@@ -49,10 +48,13 @@ class ChainLink:
     def generate(
         cls, space: pymunk.Space, start_pos: Vec2d, mass: float, radius: float, shape_filter_group: int
     ) -> ChainLink:
-        link_config = ChainLinkConfig(start_pos, mass, radius)
-        link = cls(space, link_config, shape_filter_group)
-        link._generate_body()
-        link._generate_shape()
+        chain_link_config = ChainLinkConfig(mass, radius, shape_filter_group)
+
+        body = ChainLink._generate_body(chain_link_config, start_pos)
+        shape = ChainLink._generate_shape(chain_link_config, body)
+        space.add(body, shape)
+
+        link = cls(space, chain_link_config, start_pos, body, shape)
         return link
 
     @classmethod
@@ -65,28 +67,28 @@ class ChainLink:
 
     @classmethod
     def dynamic_link(cls, other_link: ChainLink, length: float, angle: float) -> ChainLink:
-        pos = other_link.body.position + (NORM_VECTOR.rotated(angle * np.pi / 180) * length)
+        pos = other_link.body.position + (dir_vec(angle) * length)
         link = cls.generate(
             other_link.space,
             pos,
             other_link.chain_link_config.mass,
             other_link.chain_link_config.radius,
-            other_link.shape_filter_group,
+            other_link.chain_link_config.shape_filter_group,
         )
         link.add_pinjoint(other_link.body, link.body, Vec2d(0, 0))
         return link
 
-    def _generate_body(self) -> pymunk.Body:
-        self.body = pymunk.Body(self.chain_link_config.mass, self.chain_link_config.radius / 2)
-        self.body.position = self.chain_link_config.start_pos
-        self.space.add(self.body)
-        return self.body
+    @staticmethod
+    def _generate_body(chain_link_config: ChainLinkConfig, start_pos: Vec2d) -> pymunk.Body:
+        body = pymunk.Body(chain_link_config.mass, chain_link_config.radius / 2)
+        body.position = start_pos
+        return body
 
-    def _generate_shape(self) -> pymunk.Circle:
-        self.shape = pymunk.Circle(self.body, self.chain_link_config.radius)
-        self.shape.filter = pymunk.ShapeFilter(self.shape_filter_group)
-        self.space.add(self.shape)
-        return self.shape
+    @staticmethod
+    def _generate_shape(chain_link_config: ChainLinkConfig, body: pymunk.Body) -> pymunk.Circle:
+        shape = pymunk.Circle(body, chain_link_config.radius)
+        shape.filter = pymunk.ShapeFilter(chain_link_config.shape_filter_group)
+        return shape
 
     def add_pinjoint(self, body: pymunk.Body, other_body: pymunk.Body, offset: Vec2d) -> pymunk.Constraint:
         constraint = pymunk.PinJoint(body, other_body, offset)
@@ -104,10 +106,10 @@ class ChainLink:
 @dataclass
 class Swing:
     space: pymunk.Space
-    pos: Vec2d
+    start_pos: Vec2d
+    start_angle: float
     num_links: int
     link_length: float
-    start_angle: float
     links: list[ChainLink] = field(default_factory=lambda: [])
 
     @property
@@ -119,23 +121,21 @@ class Swing:
         return self.get_link_by_index(-1)
 
     @classmethod
-    def generate(
+    def create(
         cls,
+        swing_config: dict,
         space: pymunk.Space,
-        pos: Vec2d,
-        num_links: int,
-        link_length: float,
-        start_angle: float,
-        mass: float,
-        radius: float,
+        start_pos: Vec2d,
         shape_filter_group: int,
     ) -> Swing:
-        swing = cls(space, pos, num_links, link_length, start_angle)
-        swing._generate_links(mass, radius, shape_filter_group)
+        swing = cls(
+            space, start_pos, swing_config["start_angle"], swing_config["num_links"], swing_config["link_length"]
+        )
+        swing._generate_links(swing_config["link_mass"], swing_config["link_radius"], shape_filter_group)
         return swing
 
     def _generate_links(self, mass: float, radius: float, shape_filter_group: int) -> None:
-        link = ChainLink.static_link(self.space, self.pos, mass, radius, shape_filter_group)
+        link = ChainLink.static_link(self.space, self.start_pos, mass, radius, shape_filter_group)
         self.links.append(link)
         for _ in range(1, self.num_links):
             self.links.append(ChainLink.dynamic_link(self.links[-1], self.link_length, self.start_angle))

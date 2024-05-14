@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import numpy as np
 import pymunk
 from pymunk.vec2d import Vec2d
 
-from src.constants import NORM_VECTOR
+from src.constants import dir_vec
 
 
 @dataclass
@@ -15,10 +14,17 @@ class LimbConfig:
     mass: float
     start_angle: 0
     angle_constraints: tuple[float, float]
+    shape_filter_group: int
 
     @classmethod
-    def from_dict(cls, limb_data: dict) -> LimbConfig:
-        return cls(limb_data["length"], limb_data["mass"], limb_data["start_angle"], limb_data["angle_constraints"])
+    def from_dict(cls, limb_data: dict, shape_filter_group: int) -> LimbConfig:
+        return cls(
+            limb_data["length"],
+            limb_data["mass"],
+            limb_data["start_angle"],
+            limb_data["angle_constraints"],
+            shape_filter_group,
+        )
 
 
 @dataclass
@@ -26,9 +32,9 @@ class Limb:
     space: pymunk.Space
     limb_config: LimbConfig
     start_pos: Vec2d
-    joint_body: pymunk.Body = None
+    joint_body: pymunk.Body
+    limb_segment: pymunk.Segment
     joint_motor: int = None
-    limb_segment: pymunk.Segment = None
 
     @property
     def start_limb_position(self) -> Vec2d:
@@ -36,7 +42,7 @@ class Limb:
 
     @property
     def end_limb_position(self) -> Vec2d:
-        return self.joint_body.position + (Limb._get_dir_vec(self.limb_config.start_angle) * self.limb_config.length)
+        return self.joint_body.position + (dir_vec(self.limb_config.start_angle) * self.limb_config.length)
 
     @classmethod
     def generate(
@@ -47,16 +53,15 @@ class Limb:
         mass: float,
         start_angle: float,
         angle_constraints: tuple[float, float],
+        shape_filter_group: int,
     ) -> Limb:
-        body = pymunk.Body(mass, length / 12)
-        body.position = start_pos
+        limb_config = LimbConfig(length, mass, start_angle, angle_constraints, shape_filter_group)
 
-        dir_vec = Limb._get_dir_vec(start_angle)
-        segment = pymunk.Segment(body, Vec2d(0, 0), (dir_vec * length), 3)
+        body = Limb._generate_body(limb_config, start_pos)
+        segment = Limb._generate_shape(limb_config, body, shape_filter_group)
         space.add(body, segment)
 
-        limb_config = LimbConfig(length, mass, start_angle, angle_constraints)
-        limb = cls(space, limb_config, start_pos, body, 1, segment)
+        limb = cls(space, limb_config, start_pos, body, segment, 1)
         return limb
 
     @classmethod
@@ -65,11 +70,28 @@ class Limb:
     ) -> Limb:
         if offset:
             start_pos += offset
-        return cls.generate(space, start_pos, config.length, config.mass, config.start_angle, config.angle_constraints)
+        return cls.generate(
+            space,
+            start_pos,
+            config.length,
+            config.mass,
+            config.start_angle,
+            config.angle_constraints,
+            config.shape_filter_group,
+        )
 
     @staticmethod
-    def _get_dir_vec(angle: float) -> Vec2d:
-        return NORM_VECTOR.rotated(angle * np.pi / 180)
+    def _generate_body(limb_config: LimbConfig, start_pos: Vec2d) -> pymunk.Body:
+        body = pymunk.Body(limb_config.mass, limb_config.length / 12)
+        body.position = start_pos
+        return body
+
+    @staticmethod
+    def _generate_shape(limb_config: LimbConfig, body: pymunk.Body, shape_filter_group: int) -> pymunk.Segment:
+        limb_dir = dir_vec(limb_config.start_angle)
+        segment = pymunk.Segment(body, Vec2d(0, 0), (limb_dir * limb_config.length), 3)
+        segment.filter = pymunk.ShapeFilter(shape_filter_group)
+        return segment
 
 
 @dataclass
@@ -85,14 +107,14 @@ class Stickman:
     neck: Limb
 
     @classmethod
-    def create(cls, space: pymunk.Space, start_pos: Vec2d, config: dict) -> Stickman:
-        foot_config = LimbConfig.from_dict(config["foot"])
-        lower_leg_config = LimbConfig.from_dict(config["lower_leg"])
-        upper_leg_config = LimbConfig.from_dict(config["upper_leg"])
-        torso_config = LimbConfig.from_dict(config["torso"])
-        upper_arm_config = LimbConfig.from_dict(config["upper_arm"])
-        lower_arm_config = LimbConfig.from_dict(config["lower_arm"])
-        neck_config = LimbConfig.from_dict(config["neck"])
+    def create(cls, config: dict, space: pymunk.Space, start_pos: Vec2d, shape_filter_group: int) -> Stickman:
+        foot_config = LimbConfig.from_dict(config["foot"], shape_filter_group)
+        lower_leg_config = LimbConfig.from_dict(config["lower_leg"], shape_filter_group)
+        upper_leg_config = LimbConfig.from_dict(config["upper_leg"], shape_filter_group)
+        torso_config = LimbConfig.from_dict(config["torso"], shape_filter_group)
+        upper_arm_config = LimbConfig.from_dict(config["upper_arm"], shape_filter_group)
+        lower_arm_config = LimbConfig.from_dict(config["lower_arm"], shape_filter_group)
+        neck_config = LimbConfig.from_dict(config["neck"], shape_filter_group)
 
         foot = Limb.from_config(foot_config, space, start_pos)
         lower_leg = Limb.from_config(
