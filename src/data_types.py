@@ -4,6 +4,20 @@ from dataclasses import dataclass
 
 
 @dataclass
+class AppConfigType:
+    name: str
+    width: int
+    height: int
+    fps: int
+    font: str
+    font_size: int
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AppConfigType:
+        return cls(data["name"], data["width"], data["height"], data["fps"], data["font"], data["font_size"])
+
+
+@dataclass
 class SwingConfigType:
     start_angle: float
     num_links: int

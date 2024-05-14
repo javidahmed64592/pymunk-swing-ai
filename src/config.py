@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 
-from src.data_types import HeadConfigType, LimbConfigType, StickmanConfigType, SwingConfigType
+from src.data_types import AppConfigType, HeadConfigType, LimbConfigType, StickmanConfigType, SwingConfigType
 
 CONFIG_FOLDER = Path(os.path.realpath(__file__)).parent.parent / "config"
 
@@ -11,6 +11,12 @@ def load_json(filepath: Path) -> dict:
     with open(filepath) as file:
         data = json.load(file)
     return data
+
+
+def get_app_config() -> AppConfigType:
+    app_data = load_json(CONFIG_FOLDER / "app.json")
+    app_config = AppConfigType.from_dict(app_data)
+    return app_config
 
 
 def get_swing_config() -> SwingConfigType:

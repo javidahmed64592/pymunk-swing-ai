@@ -1,0 +1,8 @@
+{
+    "name": "Swinging Stickmen AI",
+    "width": 800,
+    "height": 800,
+    "fps": 60,
+    "font": "freesansbold.ttf",
+    "font_size": 24
+}
