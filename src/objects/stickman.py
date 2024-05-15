@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 import pymunk
@@ -35,7 +35,7 @@ class Head:
     start_pos: pymunk.Vec2d
     head_body: pymunk.Body
     head_shape: pymunk.Circle
-    joint_motor: int = None
+    joint_motor: int
 
     @property
     def start_head_position(self) -> pymunk.Vec2d:
@@ -78,8 +78,8 @@ class Head:
     ) -> Head:
         head_config = HeadConfig(radius, mass, start_angle, angle_constraints, shape_filter_group)
 
-        body = Head._generate_body(head_config, start_pos)
-        shape = Head._generate_shape(head_config, body, shape_filter_group)
+        body = Head.generate_body(head_config, start_pos)
+        shape = Head.generate_shape(head_config, body, shape_filter_group)
         space.add(body, shape)
 
         return cls(space, head_config, start_pos, body, shape, 1)
@@ -101,13 +101,13 @@ class Head:
         )
 
     @staticmethod
-    def _generate_body(head_config: HeadConfig, start_pos: pymunk.Vec2d) -> pymunk.Body:
+    def generate_body(head_config: HeadConfig, start_pos: pymunk.Vec2d) -> pymunk.Body:
         body = pymunk.Body(head_config.mass, np.pi / 4 * (head_config.radius**4))
         body.position = start_pos
         return body
 
     @staticmethod
-    def _generate_shape(head_config: HeadConfig, body: pymunk.Body, shape_filter_group: int) -> pymunk.Circle:
+    def generate_shape(head_config: HeadConfig, body: pymunk.Body, shape_filter_group: int) -> pymunk.Circle:
         head_dir = dir_vec(head_config.start_angle)
         shape = pymunk.Circle(body, head_config.radius, head_dir * head_config.radius)
         shape.filter = pymunk.ShapeFilter(shape_filter_group)
@@ -143,7 +143,8 @@ class Limb:
     start_pos: pymunk.Vec2d
     limb_body: pymunk.Body
     limb_segment: pymunk.Segment
-    joint_motor: int = None
+    joint_motor: int
+    constraints: list[pymunk.Constraint] = field(default_factory=lambda: [])
 
     @property
     def start_limb_position(self) -> pymunk.Vec2d:
@@ -189,8 +190,8 @@ class Limb:
     ) -> Limb:
         limb_config = LimbConfig(length, mass, start_angle, angle_constraints, shape_filter_group)
 
-        body = Limb._generate_body(limb_config, start_pos)
-        segment = Limb._generate_shape(limb_config, body, shape_filter_group)
+        body = Limb.generate_body(limb_config, start_pos)
+        segment = Limb.generate_shape(limb_config, body, shape_filter_group)
         space.add(body, segment)
 
         return cls(space, limb_config, start_pos, body, segment, 1)
@@ -212,17 +213,28 @@ class Limb:
         )
 
     @staticmethod
-    def _generate_body(limb_config: LimbConfig, start_pos: pymunk.Vec2d) -> pymunk.Body:
+    def generate_body(limb_config: LimbConfig, start_pos: pymunk.Vec2d) -> pymunk.Body:
         body = pymunk.Body(limb_config.mass, limb_config.length / 12)
         body.position = start_pos
         return body
 
     @staticmethod
-    def _generate_shape(limb_config: LimbConfig, body: pymunk.Body, shape_filter_group: int) -> pymunk.Segment:
+    def generate_shape(limb_config: LimbConfig, body: pymunk.Body, shape_filter_group: int) -> pymunk.Segment:
         limb_dir = dir_vec(limb_config.start_angle)
         segment = pymunk.Segment(body, pymunk.Vec2d(0, 0), (limb_dir * limb_config.length), 3)
         segment.filter = pymunk.ShapeFilter(shape_filter_group)
         return segment
+
+    def connect_head(self, head: Head, anchor_a: pymunk.Vec2d, anchor_b: pymunk.Vec2d) -> None:
+        constraint = pymunk.PinJoint(self.limb_segment.body, head.head_shape.body, anchor_a, anchor_b)
+        self.space.add(constraint)
+        self.constraints.append(constraint)
+
+    def connect_limb(self, other_limb: Limb, anchor_a: pymunk.Vec2d, anchor_b: pymunk.Vec2d) -> pymunk.Constraint:
+        constraint = pymunk.PinJoint(self.limb_segment.body, other_limb.limb_segment.body, anchor_a, anchor_b)
+        self.space.add(constraint)
+        self.constraints.append(constraint)
+        return constraint
 
 
 @dataclass
@@ -278,6 +290,15 @@ class Stickman:
         lower_arm = Limb.from_config(lower_arm_config, space, upper_arm.end_limb_position)
         neck = Limb.from_config(neck_config, space, torso.start_limb_position)
         head = Head.from_config(head_config, space, neck.end_limb_position)
+
+        foot.connect_limb(lower_leg, pymunk.Vec2d(0, 0), pymunk.Vec2d(0, lower_leg.limb_config.length))
+        lower_leg.connect_limb(upper_leg, pymunk.Vec2d(0, 0), pymunk.Vec2d(upper_leg_config.length, 0))
+        upper_leg.connect_limb(torso, pymunk.Vec2d(0, 0), pymunk.Vec2d(0, torso_config.length))
+        torso.connect_limb(upper_arm, pymunk.Vec2d(0, 0), pymunk.Vec2d(0, 0))
+        upper_arm.connect_limb(lower_arm, pymunk.Vec2d(upper_arm.limb_config.length, 0), pymunk.Vec2d(0, 0))
+        torso.connect_limb(neck, pymunk.Vec2d(0, 0), pymunk.Vec2d(0, 0))
+        neck.connect_head(head, pymunk.Vec2d(0, 0), pymunk.Vec2d(0, 0))
+
         return cls(space, start_pos, head, neck, upper_arm, lower_arm, torso, upper_leg, lower_leg, foot)
 
     def update(self) -> None:
